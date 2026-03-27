@@ -1,0 +1,28 @@
+name = "roam-crawler-dev"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+workers_dev = true
+
+kv_namespaces = [
+  { binding = "KV_ROAM_CACHE", id = "ec2c9c854b174240ad7ceb59bacf53cb" },
+  { binding = "KV_ROAM_ORIGINS", id = "9c6b1bd59e4e413da7aab590ee15eed9" },
+]
+
+[env.staging]
+name = "roam-crawler-staging"
+vars = { ENVIRONMENT = "staging" }
+
+kv_namespaces = [
+  { binding = "KV_ROAM_CACHE", id = "ec2c9c854b174240ad7ceb59bacf53cb" },
+  { binding = "KV_ROAM_ORIGINS", id = "9c6b1bd59e4e413da7aab590ee15eed9" },
+]
+
+[env.production]
+name = "roam-crawler"
+minify = true
+vars = { ENVIRONMENT = "production" }
+
+kv_namespaces = [
+  { binding = "KV_ROAM_CACHE", id = "ec2c9c854b174240ad7ceb59bacf53cb" },
+  { binding = "KV_ROAM_ORIGINS", id = "9c6b1bd59e4e413da7aab590ee15eed9" },
+]

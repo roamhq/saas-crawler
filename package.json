@@ -1,0 +1,24 @@
+{
+  "name": "roam-crawler-worker",
+  "version": "1.0.0",
+  "description": "Crawler worker that generates and stores llms.txt files for Roam tourism sites",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.11.0",
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "typescript": "^5.3.3",
+    "vitest": "~3.2.0",
+    "wrangler": "^3.22.1"
+  }
+}
