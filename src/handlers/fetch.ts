@@ -36,15 +36,18 @@ function authenticate(request: Request, env: Env): Response | null {
 
   // No API_SECRET configured - auth disabled (service binding only deploys)
   if (!env.API_SECRET) {
+    console.log('[auth] API_SECRET not set, skipping auth')
     return null
   }
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('[auth] No valid Authorization header. Has API_SECRET:', !!env.API_SECRET, 'Has auth header:', !!authHeader)
     return jsonResponse({ ok: false, error: 'Missing or invalid Authorization header' }, 401)
   }
 
   const token = authHeader.substring(7)
   if (token !== env.API_SECRET) {
+    console.log('[auth] Token mismatch. Token length:', token.length, 'Secret length:', env.API_SECRET.length)
     return jsonResponse({ ok: false, error: 'Invalid API token' }, 403)
   }
 
