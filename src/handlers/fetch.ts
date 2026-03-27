@@ -33,6 +33,12 @@ import {
 
 function authenticate(request: Request, env: Env): Response | null {
   const authHeader = request.headers.get('Authorization')
+
+  // No API_SECRET configured - auth disabled (service binding only deploys)
+  if (!env.API_SECRET) {
+    return null
+  }
+
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return jsonResponse({ ok: false, error: 'Missing or invalid Authorization header' }, 401)
   }
