@@ -12,7 +12,7 @@ import type {
   SaveContentRequest,
   LlmsMeta,
 } from '../types'
-import { loadSiteConfig, listClientNames } from '../services/config'
+import { loadSiteConfig, listClientNames, findClientByHostname } from '../services/config'
 import { FirecrawlClient } from '../services/firecrawl'
 import { enrichSite } from '../services/enricher'
 import { generateLlmsTxt } from '../services/generator'
@@ -70,9 +70,14 @@ export async function handleRequest(
   const method = request.method
   const path = url.pathname
 
-  // POST /generate
+  // POST /generate - by clientName
   if (method === 'POST' && path === '/generate') {
     return handleGenerate(request, env)
+  }
+
+  // POST /regenerate - by hostname (used by private worker on stale revalidation)
+  if (method === 'POST' && path === '/regenerate') {
+    return handleRegenerate(request, env)
   }
 
   // GET /content?client={clientName}
@@ -165,6 +170,77 @@ async function handleGenerate(
   if (hostname) {
     await saveContent(env.KV_ROAM_CACHE, env.KV_ROAM_ORIGINS, hostname, content, meta)
   }
+
+  return jsonResponse({
+    ok: true,
+    data: {
+      content,
+      metadata: meta,
+    },
+  })
+}
+
+/**
+ * POST /regenerate
+ * Generate llms.txt by hostname (reverse-lookup clientName from configs).
+ * Used by roam-saas-private when stale /llms.txt is detected.
+ * Returns the generated content and saves to KV automatically.
+ */
+async function handleRegenerate(
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  let body: { hostname?: string }
+  try {
+    body = (await request.json()) as { hostname?: string }
+  } catch {
+    return jsonResponse({ ok: false, error: 'Invalid JSON body' }, 400)
+  }
+
+  if (!body.hostname) {
+    return jsonResponse({ ok: false, error: 'Missing hostname' }, 400)
+  }
+
+  // Reverse-lookup clientName from hostname
+  const match = await findClientByHostname(env.KV_ROAM_CACHE, body.hostname)
+  if (!match) {
+    return jsonResponse(
+      { ok: false, error: `No config found for hostname: ${body.hostname}` },
+      404,
+    )
+  }
+
+  const { clientName, config } = match
+  console.log(`[regenerate] ${body.hostname} -> clientName: ${clientName}`)
+
+  // Check for cached enrichment first
+  let enrichment = await loadEnrichmentCache(env.KV_ROAM_CACHE, clientName)
+
+  if (!enrichment) {
+    const firecrawl = new FirecrawlClient(env.FIRECRAWL_API_KEY)
+    enrichment = await enrichSite(config, firecrawl)
+    await saveEnrichmentCache(env.KV_ROAM_CACHE, clientName, enrichment)
+  }
+
+  // Generate llms.txt content
+  const content = generateLlmsTxt(config, enrichment)
+
+  const now = new Date().toISOString()
+  const contentHash = await computeHash(content)
+
+  const meta: LlmsMeta = {
+    clientName,
+    siteCode: config.site_code,
+    siteName: config.site_name,
+    hostname: body.hostname,
+    origin: config.base_url,
+    generatedAt: now,
+    contentHash,
+    enrichedAt: enrichment.tagline ? now : '',
+  }
+
+  // Save to KV
+  await saveContent(env.KV_ROAM_CACHE, env.KV_ROAM_ORIGINS, body.hostname, content, meta)
 
   return jsonResponse({
     ok: true,

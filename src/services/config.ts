@@ -52,6 +52,33 @@ export async function listClientNames(kv: KVNamespace): Promise<string[]> {
 }
 
 /**
+ * Find a client name by matching hostname against base_url in all configs.
+ * Used by the /regenerate endpoint when only hostname is known.
+ */
+export async function findClientByHostname(
+  kv: KVNamespace,
+  hostname: string,
+): Promise<{ clientName: string; config: SiteConfig } | null> {
+  const names = await listClientNames(kv)
+
+  for (const name of names) {
+    const config = await loadSiteConfig(kv, name)
+    if (!config) continue
+
+    try {
+      const configHostname = new URL(config.base_url).hostname
+      if (configHostname === hostname) {
+        return { clientName: name, config }
+      }
+    } catch {
+      // skip invalid URLs
+    }
+  }
+
+  return null
+}
+
+/**
  * Load all site configs from KV.
  * Returns a map of clientName -> SiteConfig.
  */
